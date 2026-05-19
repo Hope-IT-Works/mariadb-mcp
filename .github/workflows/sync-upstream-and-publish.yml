@@ -2,8 +2,8 @@ name: Sync Upstream & Publish Image
 
 on:
   schedule:
-    - cron: '0 */6 * * *'   # alle 6 Stunden
-  workflow_dispatch:          # manuell auslösbar
+    - cron: '0 */6 * * *'   # every 6 hours
+  workflow_dispatch:          # manually triggerable
 
 permissions:
   contents: write
@@ -20,18 +20,18 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Git konfigurieren
+      - name: Configure Git
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Upstream Remote hinzufügen
+      - name: Add Upstream Remote
         run: git remote add upstream https://github.com/MariaDB/mcp.git
 
-      - name: Upstream fetchen
+      - name: Fetch Upstream
         run: git fetch upstream
 
-      - name: Auf neue Commits prüfen
+      - name: Check for New Commits
         id: check
         run: |
           NEW_COMMITS=$(git rev-list HEAD..upstream/main --count)
@@ -41,17 +41,17 @@ jobs:
             echo "new_commits=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Upstream-Änderungen mergen & pushen
+      - name: Merge & Push Upstream Changes
         if: steps.check.outputs.new_commits == 'true'
         run: |
           git merge upstream/main --no-edit
           git push origin main
 
-      - name: Docker Buildx einrichten
+      - name: Set Up Docker Buildx
         if: steps.check.outputs.new_commits == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/setup-buildx-action@v4.0.0
 
-      - name: Bei GitHub Container Registry anmelden
+      - name: Log in to GitHub Container Registry
         if: steps.check.outputs.new_commits == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v4.1.0
         with:
@@ -59,7 +59,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker Image Metadaten ermitteln
+      - name: Extract Docker Image Metadata
         if: steps.check.outputs.new_commits == 'true' || github.event_name == 'workflow_dispatch'
         id: meta
         uses: docker/metadata-action@v6.0.0
@@ -69,14 +69,29 @@ jobs:
             type=raw,value=latest
             type=sha,prefix=,format=short
 
-      - name: Docker Image bauen & pushen
+      - name: Build & Push Docker Image
         if: steps.check.outputs.new_commits == 'true' || github.event_name == 'workflow_dispatch'
         uses: docker/build-push-action@v7.1.0
         with:
           context: .
           push: true
           platforms: linux/amd64
+          provenance: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
+
+      - name: Clean Up Untagged Container Versions
+        if: steps.check.outputs.new_commits == 'true' || github.event_name == 'workflow_dispatch'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          PACKAGE_NAME: ${{ github.event.repository.name }}
+        run: |
+          gh api --paginate "/users/$OWNER/packages/container/$PACKAGE_NAME/versions" \
+            --jq '.[] | select(.metadata.container.tags | length == 0) | .id' | \
+          while read -r id; do
+            gh api --method DELETE "/users/$OWNER/packages/container/$PACKAGE_NAME/versions/$id"
+            echo "Deleted untagged version $id"
+          done
