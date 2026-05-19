@@ -34,10 +34,8 @@ jobs:
       - name: Auf neue Commits prüfen
         id: check
         run: |
-          UPSTREAM_SHA=$(git rev-parse upstream/main)
-          LOCAL_SHA=$(git rev-parse HEAD)
-          echo "upstream_sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
-          if [ "$UPSTREAM_SHA" != "$LOCAL_SHA" ]; then
+          NEW_COMMITS=$(git rev-list HEAD..upstream/main --count)
+          if [ "$NEW_COMMITS" -gt 0 ]; then
             echo "new_commits=true"  >> "$GITHUB_OUTPUT"
           else
             echo "new_commits=false" >> "$GITHUB_OUTPUT"
@@ -77,6 +75,7 @@ jobs:
         with:
           context: .
           push: true
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
