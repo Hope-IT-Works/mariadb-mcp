@@ -15,7 +15,13 @@ services:
       timeout: 3s
       retries: 10
   mariadb-mcp:
-    build: .
+    # asyncmy wheels crash with SIGILL on native arm64 Docker (Apple Silicon).
+    # Build and run as linux/amd64 only.
+    platform: linux/amd64
+    build:
+      context: .
+      platforms:
+        - linux/amd64
     container_name: mariadb-mcp
     env_file: .env
     ports:
