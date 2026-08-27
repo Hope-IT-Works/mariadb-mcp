@@ -146,6 +146,7 @@ All configuration is via environment variables (typically set in a `.env` file):
 | `DB_SSL_VERIFY_CERT`   | Verify server certificate (`true`/`false`)             | No       | `true`       |
 | `DB_SSL_VERIFY_IDENTITY` | Verify server hostname identity (`true`/`false`)     | No       | `false`      |
 | `MCP_READ_ONLY`        | Enforce read-only SQL mode (`true`/`false`)            | No       | `true`       |
+| `MCP_BLOCK_SENSITIVE_SHOW` | Block sensitive `SHOW` commands (`PROCESSLIST`, `GRANTS`, `VARIABLES`, `MASTER`/`REPLICA STATUS`, `BINARY LOGS`, etc.) that can leak cross-connection query text, credentials/privileges, or replication topology. Set independently of `MCP_READ_ONLY` (`true`/`false`) | No | `true` |
 | `MCP_MAX_POOL_SIZE`    | Max DB connection pool size                            | No       | `10`         |
 | `EMBEDDING_PROVIDER`   | Embedding provider (`openai`/`gemini`/`huggingface`)   | No     |`None`(Disabled)|
 | `OPENAI_API_KEY`       | API key for OpenAI embeddings                          | Yes (if EMBEDDING_PROVIDER=openai) | |
